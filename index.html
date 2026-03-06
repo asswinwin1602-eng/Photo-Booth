@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .frame-preview { border: 15px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        #canvas-output { display: none; } /* ซ่อนตัวประมวลผลไว้ */
+    </style>
+</head>
+<body class="bg-pink-50 min-h-screen flex flex-col items-center justify-center p-4">
+    
+    <h1 class="text-3xl font-bold text-pink-500 mb-6">📸 My Digital PhotoBooth</h1>
+
+    <div class="relative w-full max-w-md bg-black rounded-3xl overflow-hidden frame-preview">
+        <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+        <div id="countdown" class="absolute inset-0 flex items-center justify-center text-8xl text-white font-bold hidden"></div>
+    </div>
+
+    <div class="mt-8 space-x-4">
+        <button id="start-btn" class="bg-pink-500 hover:bg-pink-600 text-white px-8 py-3 rounded-full font-bold shadow-lg transition">เริ่มถ่ายรูป (4 ช็อต)</button>
+    </div>
+
+    <div id="result-area" class="mt-10 hidden text-center">
+        <h2 class="text-xl mb-4">รูปของคุณพร้อมแล้ว!</h2>
+        <canvas id="canvas-output"></canvas>
+        <div id="qr-container" class="bg-white p-4 inline-block rounded-xl shadow-md">
+            </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+</body>
+</html>
+คุณส่ง
+const video = document.getElementById('video');
+const startBtn = document.getElementById('start-btn');
+const countdownEl = document.getElementById('countdown');
+const canvas = document.getElementById('canvas-output');
+const ctx = canvas.getContext('2d');
+
+let photos = []; // เก็บรูปที่ถ่ายได้ 4 รูป
+
+// 1. เปิดกล้อง
+navigator.mediaDevices.getUserMedia({ video: { aspectRatio: 3/4 } })
+    .then(stream => video.srcObject = stream);
+
+// 2. ฟังก์ชันนับถอยหลังและถ่ายรูป
+startBtn.onclick = async () => {
+    photos = [];
+    startBtn.disabled = true;
+    
+    for (let i = 0; i < 4; i++) {
+        await runCountdown(3); // นับถอยหลัง 3 วินาที
+        capturePhoto();
+    }
+    
+    generatePhotoStrip(); // ถ่ายครบ 4 รูปแล้วรวมรูป
+};
+
+function runCountdown(seconds) {
+    return new Promise(resolve => {
+        countdownEl.classList.remove('hidden');
+        let count = seconds;
+        const timer = setInterval(() => {
+            countdownEl.innerText = count;
+            if (count === 0) {
+                clearInterval(timer);
+                countdownEl.classList.add('hidden');
+                resolve();
+            }
+            count--;
+        }, 1000);
+    });
+}
+
+function capturePhoto() {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 600;
+    tempCanvas.height = 450;
+    tempCanvas.getContext('2d').drawImage(video, 0, 0, 600, 450);
+    photos.push(tempCanvas.toDataURL('image/jpeg'));
+}
+
+// 3. รวมรูปเป็น Photo Strip (แนวตั้งแบบ Pica Pica)
+function generatePhotoStrip() {
+    canvas.width = 700;
+    canvas.height = 2000; // ตั้งค่าความสูงตามจำนวนรูป + ขอบ
+    ctx.fillStyle = "white"; // พื้นหลังกรอบ
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    photos.forEach((photoData, index) => {
+        const img = new Image();
+        img.onload = () => {
+            // วางรูปเรียงต่อกันในแนวตั้ง
+            ctx.drawImage(img, 50, 50 + (index * 470), 600, 450);
+            
+            if (index === 3) { // เมื่อครบ 4 รูป
+                showFinalResult();
+            }
+        };
+        img.src = photoData;
+    });
+}
+คุณส่ง
+function showFinalResult() {
+    document.getElementById('result-area').classList.remove('hidden');
+    
+    // ในที่นี้สมมติว่าเราอัปโหลดรูปไปที่ Server แล้วได้ Link มา
+    const mockUploadUrl = "https://your-storage.com/photo/12345.jpg";
+    
+    QRCode.toCanvas(document.getElementById('qr-container'), mockUploadUrl, function (error) {
+        if (error) console.error(error);
+        console.log('สร้าง QR Code สำเร็จ!');
+    });
+}
+ส่งเมื่อ 23 นาทีที่แล้ว
+เขียนถึง
